@@ -1,0 +1,9 @@
+{
+  "name": "Asistencia Serafo",
+  "short_name": "Serafo",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f8f6",
+  "theme_color": "#176b43",
+  "icons": []
+}

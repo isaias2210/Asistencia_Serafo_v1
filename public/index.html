@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#176b43"><meta name="description" content="Control de asistencia y cronogramas de Servicios y Mantenimiento Serafo">
+<link rel="manifest" href="/manifest.json"><link rel="stylesheet" href="/styles.css">
+<title>Asistencia Serafo</title>
+</head>
+<body>
+<div id="loginView" class="login-shell">
+  <section class="login-card">
+    <div class="brand-mark">S</div>
+    <p class="eyebrow">SERVICIOS Y MANTENIMIENTO</p>
+    <h1>Asistencia <span>Serafo</span></h1>
+    <p class="muted">Control de jornada, evidencias y trabajos.</p>
+    <form id="loginForm">
+      <label>Usuario<input name="username" autocomplete="username" required placeholder="Tu usuario"></label>
+      <label>Contraseña<input name="password" type="password" autocomplete="current-password" required placeholder="Tu contraseña"></label>
+      <button class="btn primary full">Iniciar sesión</button>
+    </form>
+    <p id="loginError" class="error"></p>
+  </section>
+</div>
+<div id="appView" class="app-shell hidden">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark small">S</div><div><b>ASISTENCIA SERAFO</b><small>Servicios y Mantenimiento</small></div></div>
+    <nav id="nav"></nav>
+    <button id="logoutBtn" class="nav-link logout">↪ Cerrar sesión</button>
+    <div class="side-foot">Sistema privado · Panamá</div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div><p class="eyebrow" id="todayLabel"></p><h1 id="pageTitle">Panel principal</h1></div><div class="user-chip"><span class="online-dot"></span><span id="userName"></span></div></header>
+    <div id="notice" class="notice hidden"></div>
+    <section id="content"></section>
+  </main>
+</div>
+<script src="/app.js"></script>
+</body></html>
