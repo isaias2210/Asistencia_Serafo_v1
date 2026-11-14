@@ -254,28 +254,37 @@ app.get("/api/schedule/file/:filename",auth,async(req,res)=>{
 
 function monthName(m){return ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][m-1];}
 
-// Generación de Cronograma en PDF (Exclusivamente fechas, días y actividades sin fotos)
+// Generación de Cronograma en PDF (Fechas, días y múltiples actividades sin fotos)
 app.post("/api/cronograms/generate",auth,admin,async(req,res)=>{
   const p=panamaParts(),month=Number(req.body.month)||p.month,year=Number(req.body.year)||p.year;
   try{
-    const days=await pool.query(`SELECT a.work_date,u.name,COALESCE(array_agg(DISTINCT ac.name) FILTER(WHERE ac.name IS NOT NULL),'{}') activities,a.replacement_day
-      FROM attendance a JOIN users u ON u.id=a.user_id LEFT JOIN attendance_activities aa ON aa.attendance_id=a.id
-      LEFT JOIN activities ac ON ac.id=aa.activity_id WHERE EXTRACT(MONTH FROM a.work_date)=$1 AND EXTRACT(YEAR FROM a.work_date)=$2
-      GROUP BY a.id,u.name ORDER BY a.work_date`,[month,year]);
+    // Usamos TO_CHAR para asegurar que work_date llegue siempre como texto plano 'YYYY-MM-DD'
+    const days=await pool.query(`SELECT TO_CHAR(a.work_date, 'YYYY-MM-DD') as work_date, u.name,
+      COALESCE(array_agg(DISTINCT ac.name) FILTER(WHERE ac.name IS NOT NULL),'{}') activities, a.replacement_day
+      FROM attendance a JOIN users u ON u.id=a.user_id 
+      LEFT JOIN attendance_activities aa ON aa.attendance_id=a.id
+      LEFT JOIN activities ac ON ac.id=aa.activity_id 
+      WHERE EXTRACT(MONTH FROM a.work_date)=$1 AND EXTRACT(YEAR FROM a.work_date)=$2
+      GROUP BY a.id, u.name, a.work_date ORDER BY a.work_date`,[month,year]);
+
     const dir=path.join(uploadRoot,"horarios"),filename=`cronograma_${monthName(month)}_${year}_${crypto.randomUUID()}.pdf`,full=path.join(dir,filename);
     const doc=new PDFDocument({size:"A4",layout:"landscape",margin:28});
     const stream=fs.createWriteStream(full);doc.pipe(stream);
+    
     doc.fontSize(17).font("Helvetica-Bold").text(`CRONOGRAMA DE TRABAJO DEL MES DE ${monthName(month).toUpperCase()} ${year}`,{align:"center"});
     doc.moveDown(1);
+    
     const x0=28,y0=88,w=doc.page.width-56,headerH=27,rowH=70,colW=w/7;
     const headers=["LUNES","MARTES","MIÉRCOLES","JUEVES","VIERNES","SÁBADO","DOMINGO"];
     doc.fontSize(9).font("Helvetica-Bold");
     headers.forEach((h,i)=>{doc.rect(x0+i*colW,y0,colW,headerH).fillAndStroke("#e7efe9","#9aa69d");doc.fillColor("#173b29").text(h,x0+i*colW+3,y0+9,{width:colW-6,align:"center"});});
+    
     const first=new Date(Date.UTC(year,month-1,1)), offset=(first.getUTCDay()+6)%7, total=new Date(Date.UTC(year,month,0)).getUTCDate();
     
+    // Agrupar actividades por fecha de forma exacta
     const byDay=new Map();
     for(const r of days.rows){
-      const key=String(r.work_date).slice(0,10);
+      const key=String(r.work_date).trim(); // Fecha limpia en formato YYYY-MM-DD
       if(!byDay.has(key)) byDay.set(key,[]);
       byDay.get(key).push(r);
     }
@@ -285,12 +294,16 @@ app.post("/api/cronograms/generate",auth,admin,async(req,res)=>{
       doc.rect(x,y,colW,rowH).stroke("#aab4ac");
       if(day>=1&&day<=total){
         doc.fillColor("#173b29").font("Helvetica-Bold").fontSize(10).text(String(day),x+5,y+5);
-        const key=`${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`, records=byDay.get(key);
+        const key=`${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+        const records=byDay.get(key);
+        
         if(records && records.length){
           doc.fillColor("#222").font("Helvetica").fontSize(7);
           let summaryLines = [];
           records.forEach(r => {
-            r.activities.forEach(act => summaryLines.push("• " + act));
+            if(Array.isArray(r.activities)){
+              r.activities.forEach(act => summaryLines.push("• " + act));
+            }
             if(r.replacement_day) summaryLines.push("(REPOSICIÓN)");
           });
           doc.text(summaryLines.join("\n"),x+5,y+18,{width:colW-10,height:rowH-22,ellipsis:true});
